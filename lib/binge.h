@@ -8,11 +8,18 @@
 class BingeSeason 
 {
   public:
+    enum status {
+      BS_SUCCESS = 0,
+      BS_ERROR_COMPLETED,
+      BS_ERROR_EMPTY,
+    };
     int watched{};
     int all{};
     int index{};
     BingeSeason(int watched, int all, int index=-1);
-    int getUnwatched();
+    status add();
+    status remove();
+    bool isCompleted();
 }; 
 
 class Binge 
@@ -25,10 +32,21 @@ class Binge
       BINGE_ERROR_SEASON,
     };
 
+    Binge(std::string name="", int seasons=0, int episodes=0);
+
     std::string name;
     std::string path;
     std::vector<BingeSeason> seasons;
-    Binge(std::string name="", int seasons=0, int episodes=0);
-    Binge::status load(std::string path);
+    bool isCompleted();
+
+    int getAll();
+    int getAllWatched();
+
+    void print(bool extended=false);
+    void add(int times);
+    void remove(int times);
+
+    status load(std::string path);
+    status write(std::string path="");
 };
 #endif

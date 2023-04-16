@@ -6,17 +6,26 @@
 int main()
 {
   const std::string home = getenv("HOME");
+  std::vector<Binge> binges{};
+
   Directory myfiles(home+DEFAULT_DIR);
   for (std::string &path : myfiles.paths) {
-    Binge mybinge{};
-    Binge::status c = mybinge.load(path);
-    if (c == Binge::BINGE_SUCCESS){
-      std::cout << "Series: " << mybinge.name << '\n';
-      for (auto &season : mybinge.seasons) {
-        std::cout << "Season: " << season.index+1 << '\n';
-        std::cout << season.watched << '/'<< season.all << '\n';
-      }
+    Binge currentBinge{};
+    Binge::status c = currentBinge.load(path);
+    if (c == Binge::BINGE_SUCCESS && !currentBinge.isCompleted()){
+      currentBinge.print();
+      binges.push_back(currentBinge);
     }
   }
+  // for testing 
+  int inputIndex{},inputAdd;
+  std::cin >> inputIndex;
+  Binge binge = binges.at(inputIndex);
+  binge.print();
+  std::cin >> inputAdd;
+
+  binge.add(inputAdd);
+  binge.write();
+  binge.print();
 
 }
