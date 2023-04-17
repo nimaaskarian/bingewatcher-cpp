@@ -33,6 +33,7 @@ Binge::Binge(std::string _name, int _seasons, int _episodes){
 
 }
 Binge::status Binge::load(std::string _path) {
+  changed = false;
 
   // setting name and path
   path = _path;
@@ -88,7 +89,8 @@ int Binge::getAllWatched(){
   }
   return sum;
 }
-void Binge::print(bool extended){
+void Binge::print(int index,bool extended){
+  if (index != -1) std::cout << index+1 << ": ";
   int allWatched = getAllWatched();
   int all = getAll();
   std::cout << name << ":\n";
@@ -104,6 +106,7 @@ void Binge::print(bool extended){
   }
 }
 Binge::status Binge::write(std::string _path){
+  if (!changed) return BINGE_ERROR_CHANGED;
   // fallback to default if path is not defined
   if (!_path.length()) _path = path;
 
@@ -118,6 +121,8 @@ Binge::status Binge::write(std::string _path){
     index++;
   }
 
+  bingeFile.close();
+  std::cout << "Write completed in file '" << _path << "'\n";
   return BINGE_SUCCESS;
 }
 bool Binge::isCompleted(){
@@ -130,7 +135,8 @@ bool Binge::isCompleted(){
 }
 void Binge::add(int times){
   if (isCompleted() || !times) return; 
-  if (times < 0) remove(-times);
+  if (times < 0) return remove(-times);
+
   for (int i{}; i < times; i++){
     for (BingeSeason &season : seasons){
       BingeSeason::status c = season.add();
@@ -139,10 +145,12 @@ void Binge::add(int times){
       }
     }
   }
+  changed = true;
+  std::cout << "Added " << times <<  " episodes to " << name << '\n';
 }
 void Binge::remove(int times){
   if (!getAll() || !times) return;
-  if (times < 0) add(-times);
+  if (times < 0) return add(-times);
 
   for (int i{}; i < times; i++){
     for(std::vector<BingeSeason>::reverse_iterator season = seasons.rbegin(); season!=seasons.rend(); season++){
@@ -150,4 +158,6 @@ void Binge::remove(int times){
       if (c == BingeSeason::BS_SUCCESS) break;
     }
   }
+  changed = true;
+  std::cout << "Removed " << times <<  " episodes from " << name << '\n';
 }

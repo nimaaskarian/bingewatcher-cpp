@@ -24,10 +24,12 @@ class BingeSeason
 
 class Binge 
 {
+  bool changed = true;
   public:
     enum status {
       BINGE_SUCCESS = 0,
       BINGE_ERROR_FILE,
+      BINGE_ERROR_CHANGED,
       BINGE_ERROR_EPISODE,
       BINGE_ERROR_SEASON,
     };
@@ -42,7 +44,7 @@ class Binge
     int getAll();
     int getAllWatched();
 
-    void print(bool extended=false);
+    void print(int index=-1, bool extended=false);
     void add(int times);
     void remove(int times);
 
