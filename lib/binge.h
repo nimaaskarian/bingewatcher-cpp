@@ -25,6 +25,7 @@ class BingeSeason
 class Binge 
 {
   bool changed = true;
+  BingeSeason &firstUncompleteSeason();
   public:
     enum status {
       BINGE_SUCCESS = 0,
@@ -44,7 +45,7 @@ class Binge
     int getAll();
     int getAllWatched();
 
-    void print(int index=-1, bool extended=false);
+    void print(int index=-1, bool extended=false, bool nextEpisode=false);
     void add(int times);
     void remove(int times);
 

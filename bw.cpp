@@ -8,28 +8,45 @@
 
 int main(int argc, char* argv[])
 {
-  // iterating over arguments and get a and d flags value
-  int c;
+  // argc used to calculate if program should print all or not
+  int printArgc{argc-optind};
+
+  // int variables for flag values.
   int avalue{}, dvalue{};
-  bool fflag{};
-  while ((c = getopt(argc, argv, "a:d:f")) != -1) {
-    switch (c) {
-      case 'f':
-        fflag = true;
-        break;
-      case 'a':
-        avalue = atoi(optarg);
-        break;
-      case 'd':
-        dvalue = atoi(optarg);
-        break;
-      default:
-        break;
-        // abort ();
+  // bool variables for flag existence.
+  bool fflag{}, Lflag{}, Fflag{},eflag{};
+  {
+    
+    // int c, temp variable for arguments
+    char c;
+    // iterating over arguments and get a and d flags value
+    while ((c = getopt(argc, argv, "a:d:fLFe")) != -1) {
+      switch (c) {
+        case 'e':
+          eflag = true;
+          break;
+        case 'f':
+          fflag = true;
+          break;
+        case 'L':
+          Lflag = true;
+          break;
+        case 'F':
+          Fflag = true;
+          fflag = true;
+          break;
+        case 'a':
+          avalue = atoi(optarg);
+          break;
+        case 'd':
+          dvalue = atoi(optarg);
+          break;
+        default:
+          break;
+          // abort ();
+      }
     }
   }
-  const bool printAll = argc < 2 || (argc == 2 && fflag);
-
   const std::string home = getenv("HOME");
   std::vector<Binge> binges{};
 
@@ -44,9 +61,13 @@ int main(int argc, char* argv[])
       if (c == Binge::BINGE_SUCCESS){
         // std::cout << (currentBinge.isCompleted()) << ',' << !fflag << '\n';
 
-        if (currentBinge.isCompleted() && !fflag) continue;
+        bool bingeCompleted = currentBinge.isCompleted();
+        // -f = also finished
+        if (bingeCompleted && !fflag) continue;
+        // -F = only finished
+        if (Fflag && !bingeCompleted) continue;
         // no args = listing all!
-        if (printAll) currentBinge.print(i);
+        if (printArgc < 2) currentBinge.print(i,Lflag,eflag);
         binges.push_back(currentBinge);
         i++;
       }
@@ -61,16 +82,16 @@ int main(int argc, char* argv[])
       Binge binge = binges.at(bingeIndex);
 
       // if theres a d or a value print beforehand too
-      if (avalue || dvalue) binge.print(bingeIndex);
+      if (avalue || dvalue) binge.print(bingeIndex, Lflag,eflag);
       binge.add(avalue);
       binge.remove(dvalue);
-      binge.print(bingeIndex);
+      binge.print(bingeIndex, Lflag,eflag);
       binge.write();
 
     } catch (std::invalid_argument) {
       std::cout << "Non-option argument '" << argv[index] << "'\n";
     } catch (std::out_of_range) {
-      std::cout << "You don't have " << argv[index] << " shows. You have " << binges.size() <<".\n";
+      std::cout << "You don't show " << argv[index] << ". You have show 1 to " << binges.size() <<".\n";
       return 1;
     }
 }

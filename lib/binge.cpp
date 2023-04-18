@@ -21,6 +21,12 @@ bool BingeSeason::isCompleted(){
   return watched >= all;
 }
 
+BingeSeason &Binge::firstUncompleteSeason(){
+  for (BingeSeason &season : seasons){
+    if (!season.isCompleted()) return season;
+  }
+  return seasons.at(seasons.size()-1);
+}
 Binge::Binge(std::string _name, int _seasons, int _episodes){
   // don't proceed if theres no name, season length or episodes
   if (!_name.length() || !_seasons || ! _episodes) return;
@@ -89,7 +95,12 @@ int Binge::getAllWatched(){
   }
   return sum;
 }
-void Binge::print(int index,bool extended){
+void Binge::print(int index,bool extended, bool nextEpisode){
+  if (nextEpisode) {
+    auto &season = firstUncompleteSeason();
+    printf("S%02dE%02d",season.index+1,season.watched+1);
+    return;
+  }
   if (index != -1) std::cout << index+1 << ": ";
   int allWatched = getAllWatched();
   int all = getAll();
@@ -98,9 +109,8 @@ void Binge::print(int index,bool extended){
     std::cout << all << " episodes, " << 100.0f*allWatched/all << "% watched, " << allWatched << "\n\n";
   }
   else {
-    for (BingeSeason &season : seasons){
-      std::cout << season.index+1 << ": " << season.watched << '/' << season.all <<'\n';
-    }
+    auto &season = firstUncompleteSeason();
+    std::cout << season.index+1 << ": " << season.watched << '/' << season.all <<'\n';
     std::cout << "Episodes: " << all << '\n';
     std::cout << "Progress: "<< 100.0f*allWatched/all << "%\n\n";
   }
