@@ -1,8 +1,6 @@
 #ifndef BINGE_H
 #define BINGE_H
-#include <fstream>
-#include <sstream>
-#include <algorithm>
+#include <string>
 #include <vector>
 
 class BingeSeason 
@@ -35,7 +33,7 @@ class Binge
       BINGE_ERROR_SEASON,
     };
 
-    Binge(std::string name="", int seasons=0, int episodes=0);
+    Binge(std::string name="", int episodes=0, int seasons=0);
 
     std::string name;
     std::string path;
@@ -45,11 +43,14 @@ class Binge
     int getAll();
     int getAllWatched();
 
-    void print(int index=-1, bool extended=false, bool nextEpisode=false);
+    void print(bool extended=false, bool nextEpisode=false,int index=-1);
     void add(int times);
     void remove(int times);
 
     status load(std::string path);
     status write(std::string path="");
+    status deleteFile();
+
+    void addSeason(int episodes, int seasonIndex=-1);
 };
 #endif

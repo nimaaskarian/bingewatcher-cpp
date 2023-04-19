@@ -1,4 +1,9 @@
-#include "iostream"
+#include <algorithm>
+#include <iostream>
+#include <vector>
+#include <sstream>
+#include <fstream>
+#include <filesystem>
 #include "binge.h"
 
 BingeSeason::BingeSeason(int _watched, int _all, int _index) 
@@ -27,14 +32,19 @@ BingeSeason &Binge::firstUncompleteSeason(){
   }
   return seasons.at(seasons.size()-1);
 }
-Binge::Binge(std::string _name, int _seasons, int _episodes){
-  // don't proceed if theres no name, season length or episodes
-  if (!_name.length() || !_seasons || ! _episodes) return;
+Binge::Binge(std::string _name,int _episodes ,int _seasons){
+  // don't proceed if theres no name
+  if (!_name.length()) return;
 
   // set binge name to input name
   name = _name;
+
+  // don't proceed if theres no seasons or episodes
+  if (!_seasons || ! _episodes) return;
+
+  // for each season, add a season
   for (int i{}; i < _seasons; i++){
-    seasons.push_back(BingeSeason(0,_episodes,i));
+    addSeason(_episodes,i);
   }
 
 }
@@ -95,7 +105,7 @@ int Binge::getAllWatched(){
   }
   return sum;
 }
-void Binge::print(int index,bool extended, bool nextEpisode){
+void Binge::print(bool extended, bool nextEpisode,int index){
   if (nextEpisode) {
     auto &season = firstUncompleteSeason();
     printf("S%02dE%02d",season.index+1,season.watched+1);
@@ -105,15 +115,16 @@ void Binge::print(int index,bool extended, bool nextEpisode){
   int allWatched = getAllWatched();
   int all = getAll();
   std::cout << name << ":\n";
-  if (!extended) {
-    std::cout << all << " episodes, " << 100.0f*allWatched/all << "% watched, " << allWatched << "\n\n";
-  }
-  else {
-    auto &season = firstUncompleteSeason();
-    std::cout << season.index+1 << ": " << season.watched << '/' << season.all <<'\n';
+  if (extended) {
+    for (auto &season : seasons){
+      if(season.isCompleted()) continue;
+      std::cout << season.index+1 << ": " << season.watched << '/' << season.all <<'\n';
+    }
     std::cout << "Episodes: " << all << '\n';
     std::cout << "Progress: "<< 100.0f*allWatched/all << "%\n\n";
+    return;
   }
+  std::cout << all << " episodes, " << 100.0f*allWatched/all << "% watched, " << allWatched << "\n\n";
 }
 Binge::status Binge::write(std::string _path){
   if (!changed) return BINGE_ERROR_CHANGED;
@@ -170,4 +181,19 @@ void Binge::remove(int times){
   }
   changed = true;
   std::cout << "Removed " << times <<  " episodes from " << name << '\n';
+}
+Binge::status Binge::deleteFile(){
+  std::ofstream bingeFile(path);
+  if (!bingeFile.good()) return BINGE_ERROR_FILE;
+  std::filesystem::remove(path);
+
+  std::cout << "File '" << path << "' deleted.\n";
+  return BINGE_SUCCESS;
+}
+
+void Binge::addSeason(int episodes, int seasonIndex){
+  if (seasonIndex==-1) seasonIndex = seasons.size();
+
+  BingeSeason newSeason(0, episodes,seasonIndex);
+  seasons.push_back(newSeason);
 }
