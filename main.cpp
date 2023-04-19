@@ -29,9 +29,6 @@ int main(int argc, char* argv[])
 {
   const std::string home = getenv("HOME");
 
-  // bool var used to determine if program should print all or not
-  bool printAll{argc-optind < 1};
-
   // int variables for flag values.
   int avalue{}, rvalue{};
 
@@ -152,6 +149,11 @@ int main(int argc, char* argv[])
 
   Directory myfiles(home+DEFAULT_DIR);
   {
+
+    // bool var used to determine if program should print all or not
+    // decrease fflag and Fflag (booleans, when true they == 1)
+    // so doing -f or -F alone print all
+    const bool printAll{argc-optind-fflag-Fflag < 1};
     int i{};
     for (std::string &path : myfiles.paths) {
       Binge currentBinge{};
