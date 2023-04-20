@@ -122,10 +122,17 @@ void Binge::print(bool extended, bool nextEpisode,int index){
       std::cout << season.index+1 << ": " << season.watched << '/' << season.all <<'\n';
     }
     std::cout << "Episodes: " << all << '\n';
+    std::cout << "Next Episode: ";
+    print(false, true);
+    std::cout << '\n';
     std::cout << "Progress: "<< 100.0f*allWatched/all << "%\n\n";
     return;
   }
-  std::cout << all << " episodes, " << 100.0f*allWatched/all << "% watched, " << allWatched << "\n\n";
+  std::cout << all << " episodes, " << 100.0f*allWatched/all << "% watched, next is ";
+  
+  print(false, true);
+  std::cout << "\n\n";
+
 }
 Binge::status Binge::write(std::string _path){
   if (!changed) return BINGE_ERROR_CHANGED;

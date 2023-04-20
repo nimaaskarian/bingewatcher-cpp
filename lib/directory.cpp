@@ -1,8 +1,8 @@
 #include "directory.h"
 Directory::Directory(std::string pathToDir){
-  for (const auto & entry : std::filesystem::directory_iterator(pathToDir)){
-    paths.push_back(entry.path());
-  }
+  if (pathToDir.length()) dirpath = pathToDir;
+   
+  Directory::reload();
 }
 
 bool Directory::hasFile(std::string filename){
@@ -14,4 +14,12 @@ bool Directory::hasFile(std::string filename){
 
 std::string Directory::basename(std::string path){
   return path.substr(path.find_last_of("/\\") + 1);
+}
+
+void Directory::reload(){
+  paths = std::vector<std::string>();
+  
+  for (const auto & entry : std::filesystem::directory_iterator(dirpath)){
+    paths.push_back(entry.path());
+  }
 }

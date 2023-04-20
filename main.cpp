@@ -171,14 +171,16 @@ int main(int argc, char* argv[])
 
   {
 
-    // bool var used to determine if program should print all or not
-    // decrease fflag and Fflag (booleans, when true they == 1)
-    // so doing -f or -F alone print all
-    // svalues.size is the number of occurances of -s "something" in
-    // our app. 
-    bool printAll{argc-optind-fflag-Fflag < 1};
+    std::cout << argc-optind << '\n';
+
+    // number of non-option arguments
+    bool printAll{argc-optind < 1};
+
+    // if theres a svalue, print nothing
     if (svalues.size()) printAll = false;
     int i{};
+    defaultDirectory.reload();
+
     for (std::string &path : defaultDirectory.paths) {
       Binge currentBinge{};
       Binge::status loadStatus = currentBinge.load(path);
@@ -208,6 +210,11 @@ int main(int argc, char* argv[])
     }
   }
 
+  if (!allBinges.size()){
+    std::cout << "You have no Binges! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons> \n";
+
+    return 1;
+  }
 
   for (int index = optind; index < argc; index++)
     try {
@@ -219,13 +226,10 @@ int main(int argc, char* argv[])
 
     } catch (std::invalid_argument) {
       std::cout << "Non-option argument '" << argv[index] << "'\n";
-    } catch (std::out_of_range) {
-      std::cout << "You don't show " << argv[index] << ". You have show 1 to " << allBinges.size() <<".\n";
-      return 1;
-    }
+    } 
   for (auto &index : selectedIndexes){
-      auto &binge = allBinges.at(index);
-
+    try {
+      Binge &binge = allBinges.at(index);
       if (avalue || rvalue || dflag) binge.print(Lflag,eflag,index);
       if (dflag) {
         binge.deleteFile();
@@ -235,5 +239,11 @@ int main(int argc, char* argv[])
       binge.remove(rvalue);
       binge.print(Lflag,eflag,index);
       binge.write();
+    }
+    catch (std::out_of_range) {
+      std::cout << "You don't show " << index+1 << ". You have show 1 to " << allBinges.size() <<".\n";
+      return 1;
+    }
   }
+  return 0;
 }
