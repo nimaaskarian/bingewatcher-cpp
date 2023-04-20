@@ -210,8 +210,7 @@ int main(int argc, char* argv[])
         // print all if no opts and dont check for anything else
         if (printAll) {
           currentBinge.print(Lflag,eflag,i);
-          continue;
-        }
+        } else {
         if (sflag){
           for (auto svalue : svalues)
             if ((currentBinge.name == svalue)) {
@@ -219,8 +218,8 @@ int main(int argc, char* argv[])
               selectedIndexes.push_back(i);
             }
         }
-
-        allBinges.push_back(currentBinge);
+          allBinges.push_back(currentBinge);
+        }
         i++;
       }
     }
