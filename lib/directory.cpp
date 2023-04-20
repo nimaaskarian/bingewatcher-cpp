@@ -6,6 +6,9 @@ Directory::Directory(std::string pathToDir){
 }
 
 bool Directory::hasFile(std::string filename){
+  // reload before checking if file exists so dir be updated
+  Directory::reload();
+
   for (auto &path : paths){
     if (filename == basename(path)) return true;
   }

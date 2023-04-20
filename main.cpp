@@ -26,6 +26,11 @@ size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
     return size * nmemb;
 }
 
+// print that a show exists, doesn't actually check if it exists
+void printBingeExists(std::string bingeName){
+  std::cout << "You have the show '" << bingeName << "' in your files.\n";
+}
+
 int main(int argc, char* argv[])
 {
   const std::string home = getenv("HOME");
@@ -58,8 +63,10 @@ int main(int argc, char* argv[])
         case 'o':{
           std::string data ;
           std::string newBingeName = optarg;
+
+          // printBingeExists and skip if binge exists
           if (defaultDirectory.hasFile(newBingeName)){
-            std::cout << "You have the show '" << newBingeName << "' in your files.\n";
+            printBingeExists(newBingeName);
             continue;
           }
           std::string url {"https://www.episodate.com/api/show-details?q="+newBingeName};
@@ -131,6 +138,12 @@ int main(int argc, char* argv[])
               index=i;
           }
           newBingeName = strOptarg.substr(0,index);
+
+          // printBingeExists and skip if binge exists
+          if (defaultDirectory.hasFile(newBingeName)){
+            printBingeExists(newBingeName);
+            continue;
+          }
           // rest of string to extract episodes and seasons from
           std::string restOfString = strOptarg.substr(index+1,strOptarg.length());
           // left trim it
@@ -187,12 +200,18 @@ int main(int argc, char* argv[])
         // std::cout << (currentBinge.isCompleted()) << ',' << !fflag << '\n';
 
         bool bingeCompleted = currentBinge.isCompleted();
+
         // -f = also finished
         if (bingeCompleted && !fflag) continue;
+
         // -F = only finished
         if (Fflag && !bingeCompleted) continue;
-        // no args = listing all!
-        if (printAll) currentBinge.print(Lflag,eflag,i);
+
+        // print all if no opts and dont check for anything else
+        if (printAll) {
+          currentBinge.print(Lflag,eflag,i);
+          continue;
+        }
         if (sflag){
           for (auto svalue : svalues)
             if ((currentBinge.name == svalue)) {
@@ -205,6 +224,9 @@ int main(int argc, char* argv[])
         i++;
       }
     }
+
+    // return if printAll is true. we don't need any other stuff
+    if (printAll) return 0;
   }
 
   if (!allBinges.size()){
