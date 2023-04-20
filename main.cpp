@@ -7,6 +7,7 @@
 
 #include <json/json.h>
 #include <curl/curl.h>
+#include <vector>
 
 #include "lib/binge.h"
 #include "lib/directory.h"
@@ -29,6 +30,8 @@ int main(int argc, char* argv[])
 {
   const std::string home = getenv("HOME");
 
+  Directory defaultDirectory(home+DEFAULT_DIR);
+
   // int variables for flag values.
   int avalue{}, rvalue{};
 
@@ -42,7 +45,7 @@ int main(int argc, char* argv[])
     char currentOpt;
 
     // iterating over arguments and get a and d flags value
-    while ((currentOpt = getopt(argc, argv, "a:r:fLFen:d:o:s:")) != -1) {
+    while ((currentOpt = getopt(argc, argv, "a:r:fLFen:do:s:")) != -1) {
       switch (currentOpt) {
         case 'e':
           eflag = true;
@@ -55,6 +58,10 @@ int main(int argc, char* argv[])
         case 'o':{
           std::string data ;
           std::string newBingeName = optarg;
+          if (defaultDirectory.hasFile(newBingeName)){
+            std::cout << "You have the show '" << newBingeName << "' in your files.\n";
+            continue;
+          }
           std::string url {"https://www.episodate.com/api/show-details?q="+newBingeName};
           // convert spaces to '-' so url be gud
           for (char &ch : url){
@@ -67,24 +74,36 @@ int main(int argc, char* argv[])
             curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &data);
             curl_easy_perform(curlHandle);
           }
+          // cleanup curl
+          curl_easy_cleanup(curlHandle);
+
+          // initial json root and reader
           Json::Value root{};
           Json::Reader reader;
+
+          // parse data to root with reader
           reader.parse(data, root);
+
+          // get tvShow/episodes (an array)
           auto &episodesArray = root["tvShow"]["episodes"];
+
+          // new binge to add
           Binge newBinge(newBingeName);
 
-          int episodeOfSeason{}, currentSeason{1};
+          std::vector<int> seasons{};
+
           for (auto &episode : episodesArray){
             int season{episode.get("season","").asInt()};
-            if (currentSeason != season){
-              newBinge.addSeason(episodeOfSeason);
-
-              currentSeason = season;
-              episodeOfSeason=0;
+            try{
+              seasons.at(season-1)++;
+            } catch (std::out_of_range){
+              seasons.push_back(1);
             }
-            episodeOfSeason++;
           }
-          if (newBinge.seasons.size()) newBinge.addSeason(episodeOfSeason);
+          for (auto &seasonEpisodes : seasons){
+            newBinge.addSeason(seasonEpisodes);
+          }
+          // if (newBinge.seasons.size()) newBinge.addSeason(episodeOfSeason);
 
           newBinge.print(true);
           newBinge.write(home+DEFAULT_DIR+'/'+newBingeName);
@@ -145,17 +164,22 @@ int main(int argc, char* argv[])
       }
     }
   }
-  std::vector<Binge> binges{};
+  std::vector<Binge> allBinges{};
 
-  Directory myfiles(home+DEFAULT_DIR);
+  // selected indexes to do stuff on them
+  std::vector<int> selectedIndexes{};
+
   {
 
     // bool var used to determine if program should print all or not
     // decrease fflag and Fflag (booleans, when true they == 1)
     // so doing -f or -F alone print all
-    const bool printAll{argc-optind-fflag-Fflag < 1};
+    // svalues.size is the number of occurances of -s "something" in
+    // our app. 
+    bool printAll{argc-optind-fflag-Fflag < 1};
+    if (svalues.size()) printAll = false;
     int i{};
-    for (std::string &path : myfiles.paths) {
+    for (std::string &path : defaultDirectory.paths) {
       Binge currentBinge{};
       Binge::status loadStatus = currentBinge.load(path);
 
@@ -173,14 +197,12 @@ int main(int argc, char* argv[])
         if (sflag){
           for (auto svalue : svalues)
             if ((currentBinge.name == svalue)) {
-              currentBinge.print(Lflag,eflag,i);
-              binges.push_back(currentBinge);
-              i++;
+              // currentBinge.print(Lflag,eflag,i);
+              selectedIndexes.push_back(i);
             }
-          continue;
         }
 
-        binges.push_back(currentBinge);
+        allBinges.push_back(currentBinge);
         i++;
       }
     }
@@ -191,23 +213,27 @@ int main(int argc, char* argv[])
     try {
       // if user wants the first show, we print show 0
       int bingeIndex = std::stoi(argv[index])-1;
-      Binge binge = binges.at(bingeIndex);
+      selectedIndexes.push_back(bingeIndex);
 
       // if theres a r or a value print beforehand too
-      if (avalue || rvalue || dflag) binge.print(Lflag,eflag,bingeIndex);
+
+    } catch (std::invalid_argument) {
+      std::cout << "Non-option argument '" << argv[index] << "'\n";
+    } catch (std::out_of_range) {
+      std::cout << "You don't show " << argv[index] << ". You have show 1 to " << allBinges.size() <<".\n";
+      return 1;
+    }
+  for (auto &index : selectedIndexes){
+      auto &binge = allBinges.at(index);
+
+      if (avalue || rvalue || dflag) binge.print(Lflag,eflag,index);
       if (dflag) {
         binge.deleteFile();
         continue;
       }
       binge.add(avalue);
       binge.remove(rvalue);
-      binge.print(Lflag,eflag,bingeIndex);
+      binge.print(Lflag,eflag,index);
       binge.write();
-
-    } catch (std::invalid_argument) {
-      std::cout << "Non-option argument '" << argv[index] << "'\n";
-    } catch (std::out_of_range) {
-      std::cout << "You don't show " << argv[index] << ". You have show 1 to " << binges.size() <<".\n";
-      return 1;
-    }
+  }
 }

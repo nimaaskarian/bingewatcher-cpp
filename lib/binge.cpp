@@ -5,6 +5,7 @@
 #include <fstream>
 #include <filesystem>
 #include "binge.h"
+#include "directory.h"
 
 BingeSeason::BingeSeason(int _watched, int _all, int _index) 
 {
@@ -53,7 +54,7 @@ Binge::status Binge::load(std::string _path) {
 
   // setting name and path
   path = _path;
-  name = path.substr(path.find_last_of("/\\") + 1);
+  name = Directory::basename(path);
 
   // defining variables
   int watched{}, all{};
