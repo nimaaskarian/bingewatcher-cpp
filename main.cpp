@@ -100,7 +100,7 @@ int main(int argc, char* argv[])
               seasons.push_back(1);
             }
           }
-          for (auto &seasonEpisodes : seasons){
+          for (int &seasonEpisodes : seasons){
             newBinge.addSeason(seasonEpisodes);
           }
           // if (newBinge.seasons.size()) newBinge.addSeason(episodeOfSeason);
