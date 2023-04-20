@@ -170,10 +170,7 @@ int main(int argc, char* argv[])
   std::vector<int> selectedIndexes{};
 
   {
-
-    std::cout << argc-optind << '\n';
-
-    // number of non-option arguments
+    // if number of non-option arguments is less than 1, print all
     bool printAll{argc-optind < 1};
 
     // if theres a svalue, print nothing
