@@ -108,6 +108,9 @@ int Binge::getAllWatched(){
 }
 void Binge::print(bool extended, bool nextEpisode,int index){
   if (nextEpisode) {
+    // no next episode if show is finished ofc!
+    if (isCompleted()) return;
+
     auto &season = firstUncompleteSeason();
     printf("S%02dE%02d",season.index+1,season.watched+1);
     return;
