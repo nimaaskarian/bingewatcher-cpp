@@ -24,7 +24,7 @@ BingeSeason::status BingeSeason::remove(){
   return BS_SUCCESS;
 }
 bool BingeSeason::isCompleted(){
-  return watched >= all;
+  return watched == all;
 }
 
 BingeSeason &Binge::firstUncompleteSeason(){

@@ -21,6 +21,7 @@ static inline void trimStart(std::string &str) {
     }));
 }
 
+// write function for curl, increases size of string
 size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
     data->append((char*)ptr, size * nmemb);
     return size * nmemb;
@@ -186,9 +187,9 @@ int main(int argc, char* argv[])
     // if number of non-option arguments is less than 1, print all
     bool printAll{argc-optind < 1};
 
-    // if theres a svalue, print nothing
+    // if theres a svalue, disable print all
     if (svalues.size()) printAll = false;
-    int i{};
+    int pathsIndex{};
     defaultDirectory.reload();
 
     for (std::string &path : defaultDirectory.paths) {
@@ -209,18 +210,18 @@ int main(int argc, char* argv[])
 
         // print all if no opts and dont check for anything else
         if (printAll) {
-          currentBinge.print(Lflag,eflag,i);
+          currentBinge.print(Lflag,eflag,pathsIndex);
         } else {
         if (sflag){
           for (auto svalue : svalues)
             if ((currentBinge.name == svalue)) {
               // currentBinge.print(Lflag,eflag,i);
-              selectedIndexes.push_back(i);
+              selectedIndexes.push_back(pathsIndex);
             }
         }
           allBinges.push_back(currentBinge);
         }
-        i++;
+        pathsIndex++;
       }
     }
 
@@ -234,32 +235,40 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  for (int index = optind; index < argc; index++)
+  // you can select a series either by -s flag, or by number args.
+  // series selection can be different when using -f or -F options.
+
+  for (int optIndex{ optind }; optIndex < argc; optIndex++)
     try {
       // if user wants the first show, we print show 0
-      int bingeIndex = std::stoi(argv[index])-1;
+      // this line may produce std::invalid_argument
+      int bingeIndex = std::stoi(argv[optIndex])-1;
+
+      // if bingeIndex is valid, push it to selectedIndexes
       selectedIndexes.push_back(bingeIndex);
 
-      // if theres a r or a value print beforehand too
-
     } catch (std::invalid_argument) {
-      std::cout << "Non-option argument '" << argv[index] << "'\n";
+      std::cout << "Non-option argument '" << argv[optIndex] << "'\n";
     } 
-  for (auto &index : selectedIndexes){
+
+  for (auto &selectedIndex : selectedIndexes){
     try {
-      Binge &binge = allBinges.at(index);
-      if (avalue || rvalue || dflag) binge.print(Lflag,eflag,index);
+      // this line may produce std::out_of_range
+      Binge &binge = allBinges.at(selectedIndex);
+
+      // if a,r or d flag, print beforehand too
+      if (avalue || rvalue || dflag) binge.print(Lflag,eflag,selectedIndex);
       if (dflag) {
         binge.deleteFile();
         continue;
       }
       binge.add(avalue);
       binge.remove(rvalue);
-      binge.print(Lflag,eflag,index);
+      binge.print(Lflag,eflag, selectedIndex);
       binge.write();
     }
     catch (std::out_of_range) {
-      std::cout << "You don't show " << index+1 << ". You have show 1 to " << allBinges.size() <<".\n";
+      std::cout << "You don't show " << selectedIndex+1 << ". You have show 1 to " << allBinges.size() <<".\n";
       return 1;
     }
   }
