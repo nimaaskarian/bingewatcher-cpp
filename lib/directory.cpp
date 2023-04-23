@@ -21,8 +21,13 @@ std::string Directory::basename(std::string path){
 
 void Directory::reload(){
   paths = std::vector<std::string>();
-  
+
+  // if doesn't exists, create.
+  if (!std::filesystem::exists(dirpath)) {
+    std::filesystem::create_directories(dirpath);
+  }  
   for (const auto & entry : std::filesystem::directory_iterator(dirpath)){
     paths.push_back(entry.path());
   }
+
 }

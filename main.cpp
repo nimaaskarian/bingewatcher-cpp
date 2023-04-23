@@ -178,9 +178,11 @@ int main(int argc, char* argv[])
       }
     }
   }
+
+  // vector array for all binges
   std::vector<Binge> allBinges{};
 
-  // selected indexes to do stuff on them
+  // selected indexes (of all binges) to do stuff on them
   std::vector<int> selectedIndexes{};
 
   {
@@ -196,48 +198,50 @@ int main(int argc, char* argv[])
       Binge currentBinge{};
       Binge::status loadStatus = currentBinge.load(path);
 
-      // fflag means show finished shows aswell.
-      if (loadStatus == Binge::BINGE_SUCCESS){
-        // std::cout << (currentBinge.isCompleted()) << ',' << !fflag << '\n';
+      // if its not loaded successfully, continue
+      // potential loop break here
+      if (loadStatus != Binge::BINGE_SUCCESS) continue;
 
-        bool bingeCompleted = currentBinge.isCompleted();
+      bool bingeCompleted = currentBinge.isCompleted();
 
-        // -f = also finished
-        if (bingeCompleted && !fflag) continue;
+      // -f = also finished
+      if (bingeCompleted && !fflag) continue;
 
-        // -F = only finished
-        if (Fflag && !bingeCompleted) continue;
+      // -F = only finished
+      if (Fflag && !bingeCompleted) continue;
 
-        // print all if no opts and dont check for anything else
-        if (printAll) {
-          currentBinge.print(Lflag,eflag,pathsIndex);
-        } else {
-        if (sflag){
-          for (auto svalue : svalues)
-            if ((currentBinge.name == svalue)) {
-              // currentBinge.print(Lflag,eflag,i);
-              selectedIndexes.push_back(pathsIndex);
-            }
-        }
-          allBinges.push_back(currentBinge);
-        }
-        pathsIndex++;
+      // print all if no opts and dont check for anything else
+      if (printAll) currentBinge.print(Lflag,eflag,pathsIndex);
+
+      // push all series to a vector array
+      allBinges.push_back(currentBinge);
+
+      // if theres sflag, search for the svalues inside binges.
+      if (sflag){
+        for (auto svalue : svalues)
+          if ((currentBinge.name == svalue)) {
+            // currentBinge.print(Lflag,eflag,i);
+            selectedIndexes.push_back(pathsIndex);
+          }
       }
+
+      pathsIndex++;
+    }
+
+    // no binges = error message !
+    if (!allBinges.size()){
+      std::cout << "You have no Binges! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons>' \n";
+      return 1;
     }
 
     // return if printAll is true. we don't need any other stuff
     if (printAll) return 0;
   }
 
-  if (!allBinges.size()){
-    std::cout << "You have no Binges! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons> \n";
 
-    return 1;
-  }
 
   // you can select a series either by -s flag, or by number args.
   // series selection can be different when using -f or -F options.
-
   for (int optIndex{ optind }; optIndex < argc; optIndex++)
     try {
       // if user wants the first show, we print show 0
