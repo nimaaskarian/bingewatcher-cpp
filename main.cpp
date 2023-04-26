@@ -9,7 +9,7 @@
 #include <curl/curl.h>
 #include <vector>
 
-#include "lib/binge.h"
+#include "lib/series.h"
 #include "lib/directory.h"
 
 #define DEFAULT_DIR "/.cache/bingewatcher"
@@ -28,8 +28,8 @@ size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
 }
 
 // print that a show exists, doesn't actually check if it exists
-void printBingeExists(std::string bingeName){
-  std::cout << "You have the show '" << bingeName << "' in your files.\n";
+void errorSeriesExists(std::string seriesName){
+  std::cerr << "You have the show '" << seriesName << "' in your files.\n";
 }
 
 int main(int argc, char* argv[])
@@ -45,13 +45,13 @@ int main(int argc, char* argv[])
   std::vector<std::string> svalues{};
 
   // bool variables for flag existence.
-  bool fflag{}, Lflag{}, Fflag{},eflag{},dflag{},sflag{};
+  bool fflag{}, Eflag{}, Fflag{},eflag{},dflag{},sflag{};
   {
     // int c, temp variable for arguments
     char currentOpt;
 
     // iterating over arguments and get a and d flags value
-    while ((currentOpt = getopt(argc, argv, "a:r:fLFen:do:s:")) != -1) {
+    while ((currentOpt = getopt(argc, argv, "a:r:fEFen:do:s:")) != -1) {
       switch (currentOpt) {
         case 'e':
           eflag = true;
@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 
           // printBingeExists and skip if binge exists
           if (defaultDirectory.hasFile(newBingeName)){
-            printBingeExists(newBingeName);
+            errorSeriesExists(newBingeName);
             continue;
           }
           std::string url {"https://www.episodate.com/api/show-details?q="+newBingeName};
@@ -75,6 +75,8 @@ int main(int argc, char* argv[])
           for (char &ch : url){
             if (ch==' ') ch = '-';
           }
+
+          // curl handler object
           CURL *curlHandle = curl_easy_init();
           if (curlHandle){
             auto res = curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
@@ -96,10 +98,12 @@ int main(int argc, char* argv[])
           auto &episodesArray = root["tvShow"]["episodes"];
 
           // new binge to add
-          Binge newBinge(newBingeName);
+          Series newSeries(newBingeName);
 
+          // a vectory array of seasons
           std::vector<int> seasons{};
-
+          // for each episode you find, find the season and add to
+          // the vector array above
           for (auto &episode : episodesArray){
             int season{episode.get("season","").asInt()};
             try{
@@ -108,13 +112,14 @@ int main(int argc, char* argv[])
               seasons.push_back(1);
             }
           }
-          for (int &seasonEpisodes : seasons){
-            newBinge.addSeason(seasonEpisodes);
-          }
-          // if (newBinge.seasons.size()) newBinge.addSeason(episodeOfSeason);
 
-          newBinge.print(true);
-          newBinge.write(home+DEFAULT_DIR+'/'+newBingeName);
+          // for each season in seasonEpisodes, add a season
+          for (int &seasonEpisodes : seasons){
+            newSeries.addSeason(seasonEpisodes);
+          }
+
+          newSeries.print(true);
+          newSeries.writeFile(home+DEFAULT_DIR+'/'+newBingeName);
           break;
         }
         case 'f':
@@ -123,14 +128,14 @@ int main(int argc, char* argv[])
         case 'd':
           dflag = true;
           break;
-        case 'L':
-          Lflag = true;
+        case 'E':
+          Eflag = true;
           break;
         case 'n': {
           // variable for new binges seasons and episodes
-          int newBingeSeasons{}, newBingeEpisodes{};
-          // variable for new binges name
-          std::string newBingeName{};
+          int newSeasons{}, newEpisodes{};
+          // variable for new series name
+          std::string newSeriesName{};
           // "name,episodes+seasons"
           std::string strOptarg{optarg};
           int index{};
@@ -138,11 +143,11 @@ int main(int argc, char* argv[])
             if (strOptarg[i] == ',')
               index=i;
           }
-          newBingeName = strOptarg.substr(0,index);
+          newSeriesName = strOptarg.substr(0,index);
 
           // printBingeExists and skip if binge exists
-          if (defaultDirectory.hasFile(newBingeName)){
-            printBingeExists(newBingeName);
+          if (defaultDirectory.hasFile(newSeriesName)){
+            errorSeriesExists(newSeriesName);
             continue;
           }
           // rest of string to extract episodes and seasons from
@@ -154,12 +159,12 @@ int main(int argc, char* argv[])
           std::stringstream argStream{};
           argStream.str(restOfString);
           // stream it into our two variables
-          argStream >> newBingeEpisodes >> newBingeSeasons;
+          argStream >> newEpisodes >> newSeasons;
 
           // print binge and write it to a file
-          Binge newBinge(newBingeName,newBingeEpisodes,newBingeSeasons);
+          Series newBinge(newSeriesName,newEpisodes,newSeasons);
           newBinge.print(true);
-          newBinge.write(home+DEFAULT_DIR+'/'+newBingeName);
+          newBinge.writeFile(home+DEFAULT_DIR+'/'+newSeriesName);
           break;
         }
         case 'F':
@@ -174,16 +179,15 @@ int main(int argc, char* argv[])
           break;
         default:
           break;
-          // abort ();
       }
     }
   }
 
-  // vector array for all binges
-  std::vector<Binge> allBinges{};
+  // vector array for all series
+  std::vector<Series> allSeries{};
 
-  // selected indexes (of all binges) to do stuff on them
-  std::vector<int> selectedIndexes{};
+  // selected indexes (of all series) to do stuff on them
+  std::vector<int> selectedIndexesOfSeries{};
 
   {
     // if number of non-option arguments is less than 1, print all
@@ -192,17 +196,19 @@ int main(int argc, char* argv[])
     // if theres a svalue, disable print all
     if (svalues.size()) printAll = false;
     int pathsIndex{};
+
+    // update directory (add newly added binges)
     defaultDirectory.reload();
 
     for (std::string &path : defaultDirectory.paths) {
-      Binge currentBinge{};
-      Binge::status loadStatus = currentBinge.load(path);
+      Series currentSeries{};
+      Series::status loadStatus = currentSeries.loadFile(path);
 
       // if its not loaded successfully, continue
       // potential loop break here
-      if (loadStatus != Binge::BINGE_SUCCESS) continue;
+      if (loadStatus != Series::SERIES_SUCCESS) continue;
 
-      bool bingeCompleted = currentBinge.isCompleted();
+      bool bingeCompleted = currentSeries.isCompleted();
 
       // -f = also finished
       if (bingeCompleted && !fflag) continue;
@@ -210,27 +216,27 @@ int main(int argc, char* argv[])
       // -F = only finished
       if (Fflag && !bingeCompleted) continue;
 
-      // print all if no opts and dont check for anything else
-      if (printAll) currentBinge.print(Lflag,eflag,pathsIndex);
+      // print all if no opts and don't check for anything else
+      if (printAll) currentSeries.print(Eflag,eflag,pathsIndex);
 
       // push all series to a vector array
-      allBinges.push_back(currentBinge);
+      allSeries.push_back(currentSeries);
 
       // if theres sflag, search for the svalues inside binges.
       if (sflag){
         for (auto svalue : svalues)
-          if ((currentBinge.name == svalue)) {
-            // currentBinge.print(Lflag,eflag,i);
-            selectedIndexes.push_back(pathsIndex);
+          if ((currentSeries.name == svalue)) {
+            // select the indexes of strings pushed in svalue
+            selectedIndexesOfSeries.push_back(pathsIndex);
           }
       }
 
       pathsIndex++;
     }
 
-    // no binges = error message !
-    if (!allBinges.size()){
-      std::cout << "You have no Binges! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons>' \n";
+    // no series = error message !
+    if (!allSeries.size()){
+      std::cerr << "You have no Series! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons>' \n";
       return 1;
     }
 
@@ -242,37 +248,38 @@ int main(int argc, char* argv[])
 
   // you can select a series either by -s flag, or by number args.
   // series selection can be different when using -f or -F options.
-  for (int optIndex{ optind }; optIndex < argc; optIndex++)
+  for (int optIndex{ optind }; optIndex < argc; ++optIndex) {
     try {
       // if user wants the first show, we print show 0
       // this line may produce std::invalid_argument
-      int bingeIndex = std::stoi(argv[optIndex])-1;
+      int serieIndex = std::stoi(argv[optIndex])-1;
 
-      // if bingeIndex is valid, push it to selectedIndexes
-      selectedIndexes.push_back(bingeIndex);
+      // if serieIndex is valid, push it to selectedIndexes
+      selectedIndexesOfSeries.push_back(serieIndex);
 
     } catch (std::invalid_argument) {
-      std::cout << "Non-option argument '" << argv[optIndex] << "'\n";
+      std::cerr << "Non-option argument '" << argv[optIndex] << "'\n";
     } 
+  }
 
-  for (auto &selectedIndex : selectedIndexes){
+  for (auto &selectedIndex : selectedIndexesOfSeries) {
     try {
       // this line may produce std::out_of_range
-      Binge &binge = allBinges.at(selectedIndex);
+      Series &currentSerie = allSeries.at(selectedIndex);
 
       // if a,r or d flag, print beforehand too
-      if (avalue || rvalue || dflag) binge.print(Lflag,eflag,selectedIndex);
+      if (avalue || rvalue || dflag) currentSerie.print(Eflag,eflag,selectedIndex);
       if (dflag) {
-        binge.deleteFile();
+        currentSerie.deleteFile();
         continue;
       }
-      binge.add(avalue);
-      binge.remove(rvalue);
-      binge.print(Lflag,eflag, selectedIndex);
-      binge.write();
+      currentSerie.addWatchedEpisodes(avalue);
+      currentSerie.removeWatchedEpisodes(rvalue);
+      currentSerie.print(Eflag,eflag, selectedIndex);
+      currentSerie.writeFile();
     }
     catch (std::out_of_range) {
-      std::cout << "You don't show " << selectedIndex+1 << ". You have show 1 to " << allBinges.size() <<".\n";
+      std::cerr << "You don't show " << selectedIndex+1 << ". You have show 1 to " << allSeries.size() <<".\n";
       return 1;
     }
   }

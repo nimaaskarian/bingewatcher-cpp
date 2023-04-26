@@ -7,6 +7,7 @@ Directory::Directory(std::string pathToDir){
 
 bool Directory::hasFile(std::string filename){
   // reload before checking if file exists so dir be updated
+  // in case a newly file was created from the point of initialization
   Directory::reload();
 
   for (auto &path : paths){
@@ -25,6 +26,9 @@ void Directory::reload(){
   // if doesn't exists, create.
   if (!std::filesystem::exists(dirpath)) {
     std::filesystem::create_directories(dirpath);
+    // ofc when you create it, the dir is empty. theres nothing to list
+    // we quit the function then!
+    return;
   }  
   for (const auto & entry : std::filesystem::directory_iterator(dirpath)){
     paths.push_back(entry.path());
