@@ -195,14 +195,14 @@ int main(int argc, char* argv[])
 
     // if theres a svalue, disable print all
     if (svalues.size()) printAll = false;
-    int pathsIndex{};
+    int pathsOfFilesIndex{};
 
     // update directory (add newly added binges)
     defaultDirectory.reload();
 
-    for (std::string &path : defaultDirectory.paths) {
+    for (std::string &filePath : defaultDirectory.pathsOfFiles) {
       Series currentSeries{};
-      Series::status loadStatus = currentSeries.loadFile(path);
+      Series::status loadStatus = currentSeries.loadFile(filePath);
 
       // if its not loaded successfully, continue
       // potential loop break here
@@ -217,7 +217,7 @@ int main(int argc, char* argv[])
       if (Fflag && !bingeCompleted) continue;
 
       // print all if no opts and don't check for anything else
-      if (printAll) currentSeries.print(Eflag,eflag,pathsIndex);
+      if (printAll) currentSeries.print(Eflag,eflag,pathsOfFilesIndex);
 
       // push all series to a vector array
       allSeries.push_back(currentSeries);
@@ -227,11 +227,11 @@ int main(int argc, char* argv[])
         for (auto svalue : svalues)
           if ((currentSeries.name == svalue)) {
             // select the indexes of strings pushed in svalue
-            selectedIndexesOfSeries.push_back(pathsIndex);
+            selectedIndexesOfSeries.push_back(pathsOfFilesIndex);
           }
       }
 
-      pathsIndex++;
+      pathsOfFilesIndex++;
     }
 
     // no series = error message !
@@ -243,8 +243,6 @@ int main(int argc, char* argv[])
     // return if printAll is true. we don't need any other stuff
     if (printAll) return 0;
   }
-
-
 
   // you can select a series either by -s flag, or by number args.
   // series selection can be different when using -f or -F options.

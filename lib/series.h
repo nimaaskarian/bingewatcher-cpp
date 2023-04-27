@@ -56,6 +56,8 @@ class Series
     void removeSeason(int seasonIndex=-1);
     void editSeason(int episodes, int seasonIndex=-1);
 
+    void setName(std::string name);
+
     status loadFile(std::string path);
     status writeFile(std::string path="");
     status deleteFile();

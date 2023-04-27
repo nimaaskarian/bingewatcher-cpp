@@ -13,27 +13,32 @@ Season::Season(int watched, int all, int index)
   this->watched = watched;
   this->index = index;
 }
-Season::status Season::addWatchedEpisode(){
+Season::status Season::addWatchedEpisode()
+{
   if (isCompleted()) return SEASON_ERROR_COMPLETED;
   watched++;
   return SEASON_SUCCESS;
 }
-Season::status Season::removeWatchedEpisode(){
+Season::status Season::removeWatchedEpisode()
+{
   if (!watched) return SEASON_ERROR_EMPTY;
   watched--;
   return SEASON_SUCCESS;
 }
-bool Season::isCompleted(){
+bool Season::isCompleted()
+{
   return watched == all;
 }
 
-Season &Series::firstUncompleteSeason(){
+Season &Series::firstUncompleteSeason()
+{
   for (Season &season : seasons){
     if (!season.isCompleted()) return season;
   }
   return seasons.at(seasons.size()-1);
 }
-Series::Series(std::string name,int episodes ,int seasons){
+Series::Series(std::string name,int episodes ,int seasons)
+{
   // changed is true by default.
   // so we don't need to set it to true in constructor
 
@@ -52,7 +57,8 @@ Series::Series(std::string name,int episodes ,int seasons){
   }
 
 }
-Series::status Series::loadFile(std::string path) {
+Series::status Series::loadFile(std::string path) 
+{
   isChanged = false;
 
   // setting name and path
@@ -99,21 +105,24 @@ Series::status Series::loadFile(std::string path) {
   // returning success status
   return SERIES_SUCCESS;
 }
-int Series::getAllEpisodes(){
+int Series::getAllEpisodes()
+{
   int sum{};
   for (Season &season : seasons){
     sum+=season.all;
   }
   return sum;
 }
-int Series::getWatchedEpisodes(){
+int Series::getWatchedEpisodes()
+{
   int sum{};
   for (Season &season : seasons){
     sum+=season.watched;
   }
   return sum;
 }
-void Series::print(bool isExtended, bool isOnlyNextEpisode,int index){
+void Series::print(bool isExtended, bool isOnlyNextEpisode,int index)
+{
   if (isOnlyNextEpisode) {
     // no next episode if show is finished ofc!
     if (isCompleted()) return;
@@ -144,7 +153,8 @@ void Series::print(bool isExtended, bool isOnlyNextEpisode,int index){
   std::cout << "\n\n";
 
 }
-Series::status Series::writeFile(std::string path){
+Series::status Series::writeFile(std::string path)
+{
   if (!isChanged) return SERIES_ERROR_NOT_CHANGED;
   // fallback to default if path is not defined
   if (!path.length()) path = this->path;
@@ -164,7 +174,8 @@ Series::status Series::writeFile(std::string path){
   std::cout << "Write completed in file '" << path << "'\n";
   return SERIES_SUCCESS;
 }
-bool Series::isCompleted(){
+bool Series::isCompleted()
+{
   bool allTrue = true;
   for (Season &season : seasons){
     if (!allTrue) break;
@@ -172,7 +183,8 @@ bool Series::isCompleted(){
   }
   return allTrue;
 }
-void Series::addWatchedEpisodes(int count){
+void Series::addWatchedEpisodes(int count)
+{
   if (isCompleted() || !count) return; 
   if (count < 0) return removeWatchedEpisodes(-count);
 
@@ -187,7 +199,8 @@ void Series::addWatchedEpisodes(int count){
   isChanged = true;
   std::cout << "Added " << count <<  " episodes to " << name << '\n';
 }
-void Series::removeWatchedEpisodes(int count){
+void Series::removeWatchedEpisodes(int count)
+{
   if (!getAllEpisodes() || !count) return;
   if (count < 0) return addWatchedEpisodes(-count);
 
@@ -200,7 +213,8 @@ void Series::removeWatchedEpisodes(int count){
   isChanged = true;
   std::cout << "Removed " << count <<  " episodes from " << name << '\n';
 }
-Series::status Series::deleteFile(){
+Series::status Series::deleteFile()
+{
   if (!std::filesystem::exists(path)) return SERIES_ERROR_PATH_UNDEFINED;
   std::filesystem::remove(path);
 
@@ -213,4 +227,15 @@ void Series::addSeason(int episodes, int seasonIndex){
 
   Season newSeason(0, episodes,seasonIndex);
   seasons.push_back(newSeason);
+}
+void Series::setName(std::string name)
+{
+  if (!name.length()) return;
+  this->name = name;
+
+  if (!path.length()) return;
+  // this->path
+  path = Directory::parentDirectoryPath(path)+name;
+
+  std::cout << path << '\n';
 }
