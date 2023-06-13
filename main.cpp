@@ -11,26 +11,13 @@
 
 #include "lib/series.h"
 #include "lib/directory.h"
+#include "lib/colors.h"
 
 #define DEFAULT_DIR "/.cache/bingewatcher"
-
-// trim from start (in place with reference)
-static inline void trimStart(std::string &str) {
-    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }));
-}
-
-// write function for curl, increases size of string
-size_t writeFunction(void* ptr, size_t size, size_t nmemb, std::string* data) {
-    data->append((char*)ptr, size * nmemb);
-    return size * nmemb;
-}
-
-// print that a show exists, doesn't actually check if it exists
-void errorSeriesExists(std::string seriesName){
-  std::cerr << "You have the show '" << seriesName << "' in your files.\n";
-}
+static inline void trimStart(std::string &str);
+static inline size_t curlWriteFunction(void* ptr, size_t size, size_t nmemb, std::string* data) ;
+void errorSeriesExists(std::string seriesName);
+void quickSortSeriesArray(std::vector<Series>&);
 
 int main(int argc, char* argv[])
 {
@@ -42,16 +29,16 @@ int main(int argc, char* argv[])
   int avalue{}, rvalue{};
 
   // svalue for search flag value
-  std::vector<std::string> svalues{};
+  std::vector<std::string> svalues{},Svalues{};
 
   // bool variables for flag existence.
-  bool fflag{}, Eflag{}, Fflag{},eflag{},dflag{},sflag{};
+  bool fflag{}, Eflag{}, Fflag{},eflag{},dflag{},sflag{},Sflag{};
   {
     // int c, temp variable for arguments
     char currentOpt;
 
     // iterating over arguments and get a and d flags value
-    while ((currentOpt = getopt(argc, argv, "a:r:fEFen:do:s:")) != -1) {
+    while ((currentOpt = getopt(argc, argv, "a:r:fEFen:do:s:S:")) != -1) {
       switch (currentOpt) {
         case 'e':
           eflag = true;
@@ -61,16 +48,21 @@ int main(int argc, char* argv[])
           svalues.push_back(optarg);
           break;
         }
+        case 'S': {
+          Sflag = true;
+          Svalues.push_back(optarg);
+          break;
+        }
         case 'o':{
           std::string data ;
-          std::string newBingeName = optarg;
+          std::string newSeriesName = optarg;
 
           // printBingeExists and skip if binge exists
-          if (defaultDirectory.hasFile(newBingeName)){
-            errorSeriesExists(newBingeName);
+          if (defaultDirectory.hasFile(newSeriesName)){
+            errorSeriesExists(newSeriesName);
             continue;
           }
-          std::string url {"https://www.episodate.com/api/show-details?q="+newBingeName};
+          std::string url {"https://www.episodate.com/api/show-details?q="+newSeriesName};
           // convert spaces to '-' so url be gud
           for (char &ch : url){
             if (ch==' ') ch = '-';
@@ -79,8 +71,8 @@ int main(int argc, char* argv[])
           // curl handler object
           CURL *curlHandle = curl_easy_init();
           if (curlHandle){
-            auto res = curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, writeFunction);
+            curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
+            curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlWriteFunction);
             curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &data);
             curl_easy_perform(curlHandle);
           }
@@ -98,7 +90,7 @@ int main(int argc, char* argv[])
           auto &episodesArray = root["tvShow"]["episodes"];
 
           // new binge to add
-          Series newSeries(newBingeName);
+          Series newSeries(newSeriesName);
 
           // a vectory array of seasons
           std::vector<int> seasons{};
@@ -119,7 +111,7 @@ int main(int argc, char* argv[])
           }
 
           newSeries.print(true);
-          newSeries.writeFile(home+DEFAULT_DIR+'/'+newBingeName);
+          newSeries.writeFile(home+DEFAULT_DIR+'/'+newSeriesName);
           break;
         }
         case 'f':
@@ -194,7 +186,7 @@ int main(int argc, char* argv[])
     bool printAll{argc-optind < 1};
 
     // if theres a svalue, disable print all
-    if (svalues.size()) printAll = false;
+    if (svalues.size() || Svalues.size()) printAll = false;
     int pathsOfFilesIndex{};
 
     // update directory (add newly added binges)
@@ -225,7 +217,14 @@ int main(int argc, char* argv[])
       // if theres sflag, search for the svalues inside binges.
       if (sflag){
         for (auto svalue : svalues)
-          if ((currentSeries.name == svalue)) {
+          if (currentSeries.name.find(svalue) != std::string::npos) {
+            // select the indexes of strings pushed in svalue
+            selectedIndexesOfSeries.push_back(pathsOfFilesIndex);
+          }
+      }
+      if (Sflag){
+        for (auto Svalue : Svalues)
+          if (currentSeries.name == Svalue) {
             // select the indexes of strings pushed in svalue
             selectedIndexesOfSeries.push_back(pathsOfFilesIndex);
           }
@@ -282,4 +281,67 @@ int main(int argc, char* argv[])
     }
   }
   return 0;
+}
+// trim from start (in place with reference)
+static inline void trimStart(std::string &str) 
+{
+    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// write function for curl, increases size of string
+static inline size_t curlWriteFunction(void* ptr, size_t size, size_t nmemb, std::string* data) 
+{
+    data->append((char*)ptr, size * nmemb);
+    return size * nmemb;
+}
+
+// print that a show exists, doesn't actually check if it exists
+void errorSeriesExists(std::string seriesName)
+{
+  std::cerr << "You have the show '" << seriesName << "' in your files.\n";
+}
+void quickSortSeriesArray(std::vector<Series>& seriesArray, size_t low, size_t high)
+{
+  int partition(std::vector<Series> & arr, int start, int end);
+  if (low < high) {
+    int pivotIndex = partition(seriesArray,low,high);
+    quickSortSeriesArray(seriesArray, low, pivotIndex-1);
+    quickSortSeriesArray(seriesArray, pivotIndex+1, high);
+  }
+}
+int partition(std::vector<Series> & arr, int start, int end)
+{
+  Series pivot = arr[start];
+
+  int count = 0;
+  for (int i = start + 1; i <= end; i++) {
+    if (arr[i].name <= pivot.name)
+      count++;
+  }
+
+  // Giving pivot element its correct position
+  int pivotIndex = start + count;
+  std::swap(arr[pivotIndex], arr[start]);
+
+  // Sorting left and right parts of the pivot element
+  int i = start, j = end;
+ 
+  while (i < pivotIndex && j > pivotIndex) {
+
+    while (arr[i].name <= pivot.name) {
+        i++;
+    }
+
+    while (arr[j].name > pivot.name) {
+        j--;
+    }
+
+    if (i < pivotIndex && j > pivotIndex) {
+      std::swap(arr[i++], arr[j--]);
+    }
+  }
+
+  return pivotIndex;
 }
