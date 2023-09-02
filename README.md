@@ -1,6 +1,6 @@
 # bingewatcher-cpp
 
-same old [bingewatcher](https://github/nimaaskarian/bingewatcher), but instead of python, written in cpp.  
+same old [bingewatcher](https://github.com/nimaaskarian/bingewatcher), but instead of python, written in cpp.  
 helps you keep track of all shows, series or anything that has seasons or episodes (even can kinda handle courses?) for you. 
 ## better code base.
 the code base is just better, its using OOP model, but don't sacrifice performance over anything. (and cpp is more fun than python to code).
