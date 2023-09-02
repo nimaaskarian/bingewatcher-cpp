@@ -4,227 +4,92 @@
 #include <string>
 #include <unistd.h>
 #include <algorithm>
-
-#include <json/json.h>
-#include <curl/curl.h>
+#include <regex>
 #include <vector>
 
-#include "lib/series.h"
+#include "lib/tv-shows.h"
 #include "lib/directory.h"
-#include "lib/colors.h"
 
 #define DEFAULT_DIR "/.cache/bingewatcher"
-static inline void trimStart(std::string &str);
-static inline size_t curlWriteFunction(void* ptr, size_t size, size_t nmemb, std::string* data) ;
+
+typedef struct Args {
+  std::vector<std::string> searchValues{},matchValues{};
+  std::vector<TvShow> newTvShows{};
+  std::string dir{DEFAULT_DIR};
+  int addWatched{0}, removeWatched{0};
+  bool finished{0}, extended{0}, unfinished{1},episode{0},deleteSeries{0},searchFlag{0},matchFlag{0};
+} Args;
+
 void errorSeriesExists(std::string seriesName);
-void quickSortSeriesArray(std::vector<Series>&);
+Args parseArgs(int argc, char *argv[]);
 
 int main(int argc, char* argv[])
 {
+  Args args = parseArgs(argc, argv);
   const std::string home = getenv("HOME");
 
-  Directory defaultDirectory(home+DEFAULT_DIR);
-
-  // int variables for flag values.
-  int avalue{}, rvalue{};
-
-  // svalue for search flag value
-  std::vector<std::string> svalues{},Svalues{};
-
-  // bool variables for flag existence.
-  bool fflag{}, Eflag{}, Fflag{},eflag{},dflag{},sflag{},Sflag{};
-  {
-    // int c, temp variable for arguments
-    char currentOpt;
-
-    // iterating over arguments and get a and d flags value
-    while ((currentOpt = getopt(argc, argv, "a:r:fEFen:do:s:S:")) != -1) {
-      switch (currentOpt) {
-        case 'e':
-          eflag = true;
-          break;
-        case 's': {
-          sflag = true;
-          svalues.push_back(optarg);
-          break;
-        }
-        case 'S': {
-          Sflag = true;
-          Svalues.push_back(optarg);
-          break;
-        }
-        case 'o':{
-          std::string data ;
-          std::string newSeriesName = optarg;
-
-          // printBingeExists and skip if binge exists
-          if (defaultDirectory.hasFile(newSeriesName)){
-            errorSeriesExists(newSeriesName);
-            continue;
-          }
-          std::string url {"https://www.episodate.com/api/show-details?q="+newSeriesName};
-          // convert spaces to '-' so url be gud
-          for (char &ch : url){
-            if (ch==' ') ch = '-';
-          }
-
-          // curl handler object
-          CURL *curlHandle = curl_easy_init();
-          if (curlHandle){
-            curl_easy_setopt(curlHandle, CURLOPT_URL, url.c_str());
-            curl_easy_setopt(curlHandle, CURLOPT_WRITEFUNCTION, curlWriteFunction);
-            curl_easy_setopt(curlHandle, CURLOPT_WRITEDATA, &data);
-            curl_easy_perform(curlHandle);
-          }
-          // cleanup curl
-          curl_easy_cleanup(curlHandle);
-
-          // initial json root and reader
-          Json::Value root{};
-          Json::Reader reader;
-
-          // parse data to root with reader
-          reader.parse(data, root);
-
-          // get tvShow/episodes (an array)
-          auto &episodesArray = root["tvShow"]["episodes"];
-
-          // new binge to add
-          Series newSeries(newSeriesName);
-
-          // a vectory array of seasons
-          std::vector<int> seasons{};
-          // for each episode you find, find the season and add to
-          // the vector array above
-          for (auto &episode : episodesArray){
-            int season{episode.get("season","").asInt()};
-            try{
-              seasons.at(season-1)++;
-            } catch (std::out_of_range){
-              seasons.push_back(1);
-            }
-          }
-
-          // for each season in seasonEpisodes, add a season
-          for (int &seasonEpisodes : seasons){
-            newSeries.addSeason(seasonEpisodes);
-          }
-
-          newSeries.print(true);
-          newSeries.writeFile(home+DEFAULT_DIR+'/'+newSeriesName);
-          break;
-        }
-        case 'f':
-          fflag = true;
-          break;
-        case 'd':
-          dflag = true;
-          break;
-        case 'E':
-          Eflag = true;
-          break;
-        case 'n': {
-          // variable for new binges seasons and episodes
-          int newSeasons{}, newEpisodes{};
-          // variable for new series name
-          std::string newSeriesName{};
-          // "name,episodes+seasons"
-          std::string strOptarg{optarg};
-          int index{};
-          for (int i{}; i < strOptarg.length(); ++i){
-            if (strOptarg[i] == ',')
-              index=i;
-          }
-          newSeriesName = strOptarg.substr(0,index);
-
-          // printBingeExists and skip if binge exists
-          if (defaultDirectory.hasFile(newSeriesName)){
-            errorSeriesExists(newSeriesName);
-            continue;
-          }
-          // rest of string to extract episodes and seasons from
-          std::string restOfString = strOptarg.substr(index+1,strOptarg.length());
-          // left trim it
-          trimStart(restOfString);
-
-          // argStream for episodes and seasons
-          std::stringstream argStream{};
-          argStream.str(restOfString);
-          // stream it into our two variables
-          argStream >> newEpisodes >> newSeasons;
-
-          // print binge and write it to a file
-          Series newBinge(newSeriesName,newEpisodes,newSeasons);
-          newBinge.print(true);
-          newBinge.writeFile(home+DEFAULT_DIR+'/'+newSeriesName);
-          break;
-        }
-        case 'F':
-          Fflag = true;
-          fflag = true;
-          break;
-        case 'a':
-          avalue = atoi(optarg);
-          break;
-        case 'r':
-          rvalue = atoi(optarg);
-          break;
-        default:
-          break;
-      }
-    }
-  }
+  Directory defaultDirectory(home+args.dir);
 
   // vector array for all series
-  std::vector<Series> allSeries{};
+  std::vector<TvShow> allTvShows{};
 
   // selected indexes (of all series) to do stuff on them
   std::vector<int> selectedIndexesOfSeries{};
+
+  if (defaultDirectory.hasFile(newSeriesName)){
+    errorSeriesExists(newSeriesName);
+    continue;
+  }
 
   {
     // if number of non-option arguments is less than 1, print all
     bool printAll{argc-optind < 1};
 
     // if theres a svalue, disable print all
-    if (svalues.size() || Svalues.size()) printAll = false;
+    if (args.searchValues.size() || args.matchValues.size()) printAll = false;
     int pathsOfFilesIndex{};
 
     // update directory (add newly added binges)
     defaultDirectory.reload();
 
     for (std::string &filePath : defaultDirectory.pathsOfFiles) {
-      Series currentSeries{};
-      Series::status loadStatus = currentSeries.loadFile(filePath);
+      TvShow currentSerie{};
+      TvShow::status loadStatus = currentSerie.loadFile(filePath);
 
       // if its not loaded successfully, continue
       // potential loop break here
-      if (loadStatus != Series::SERIES_SUCCESS) continue;
+      if (loadStatus != TvShow::SERIES_SUCCESS) continue;
 
-      bool bingeCompleted = currentSeries.isCompleted();
+      bool bingeCompleted = currentSerie.isCompleted();
 
       // -f = also finished
-      if (bingeCompleted && !fflag) continue;
+      if (bingeCompleted && !args.finished) continue;
 
       // -F = only finished
-      if (Fflag && !bingeCompleted) continue;
+      if (args.finishedOnly && !bingeCompleted) continue;
 
       // print all if no opts and don't check for anything else
-      if (printAll) currentSeries.print(Eflag,eflag,pathsOfFilesIndex);
+      if (printAll) 
+      {
+        if(args.extended) currentSerie.printExtended(pathsOfFilesIndex);
+        else if(args.episode) currentSerie.printNextEpisode();
+        else currentSerie.print(pathsOfFilesIndex);
 
+      }
       // push all series to a vector array
-      allSeries.push_back(currentSeries);
+      allTvShows.push_back(currentSerie);
 
-      // if theres sflag, search for the svalues inside binges.
-      if (sflag){
-        for (auto svalue : svalues)
-          if (currentSeries.name.find(svalue) != std::string::npos) {
+      // if theres args.searchFlag, search for the args.searchValues inside binges.
+      if (args.searchFlag){
+        for (auto svalue : args.searchValues)
+          if (currentSerie.name.find(svalue) != std::string::npos) {
             // select the indexes of strings pushed in svalue
             selectedIndexesOfSeries.push_back(pathsOfFilesIndex);
           }
       }
-      if (Sflag){
-        for (auto Svalue : Svalues)
-          if (currentSeries.name == Svalue) {
+      if (args.matchFlag){
+        for (auto Svalue : args.matchValues)
+          if (currentSerie.name == Svalue) {
             // select the indexes of strings pushed in svalue
             selectedIndexesOfSeries.push_back(pathsOfFilesIndex);
           }
@@ -234,7 +99,7 @@ int main(int argc, char* argv[])
     }
 
     // no series = error message !
-    if (!allSeries.size()){
+    if (!allTvShows.size()){
       std::cerr << "You have no Series! add one with bw -o '<name of your show>' or bw -n '<name of your show,<episodes>+<seasons>' \n";
       return 1;
     }
@@ -262,86 +127,106 @@ int main(int argc, char* argv[])
   for (auto &selectedIndex : selectedIndexesOfSeries) {
     try {
       // this line may produce std::out_of_range
-      Series &currentSerie = allSeries.at(selectedIndex);
+      TvShow &currentSerie = allTvShows.at(selectedIndex);
 
       // if a,r or d flag, print beforehand too
-      if (avalue || rvalue || dflag) currentSerie.print(Eflag,eflag,selectedIndex);
-      if (dflag) {
+      if (args.addWatched || args.removeWatched || args.deleteSeries) {
+        if (args.extended)
+          currentSerie.printExtended(selectedIndex);
+        if (args.episode)
+          currentSerie.printNextEpisode();
+        if (!args.episode && !args.extended)
+          currentSerie.print(selectedIndex);
+      }
+      if (args.deleteSeries) {
         currentSerie.deleteFile();
         continue;
       }
-      currentSerie.addWatchedEpisodes(avalue);
-      currentSerie.removeWatchedEpisodes(rvalue);
-      currentSerie.print(Eflag,eflag, selectedIndex);
+      currentSerie.addWatchedEpisodes(args.addWatched);
+      currentSerie.removeWatchedEpisodes(args.removeWatched);
+      currentSerie.print(selectedIndex);
       currentSerie.writeFile();
     }
     catch (std::out_of_range) {
-      std::cerr << "You don't show " << selectedIndex+1 << ". You have show 1 to " << allSeries.size() <<".\n";
+      std::cerr << "You don't show " << selectedIndex+1 << ". You have show 1 to " << allTvShows.size() <<".\n";
       return 1;
     }
   }
   return 0;
 }
-// trim from start (in place with reference)
-static inline void trimStart(std::string &str) 
-{
-    str.erase(str.begin(), std::find_if(str.begin(), str.end(), [](unsigned char ch) {
-        return !std::isspace(ch);
-    }));
-}
 
-// write function for curl, increases size of string
-static inline size_t curlWriteFunction(void* ptr, size_t size, size_t nmemb, std::string* data) 
+Args parseArgs(int argc, char *argv[])
 {
-    data->append((char*)ptr, size * nmemb);
-    return size * nmemb;
+  Args args;
+  // int c, temp variable for arguments
+  char currentOpt;
+
+  // iterating over arguments and get a and d flags value
+  while ((currentOpt = getopt(argc, argv, "a:r:fEFen:do:s:S:")) != -1) {
+    switch (currentOpt) {
+      case 'e':
+        args.episode = true;
+        break;
+      case 's': {
+        args.searchFlag = true;
+        args.searchValues.push_back(optarg);
+        break;
+      }
+      case 'S': {
+        args.matchFlag = true;
+        args.matchValues.push_back(optarg);
+        break;
+      }
+      case 'o':{
+      }
+      case 'f':
+        args.finished = true;
+        break;
+      case 'd':
+        args.deleteSeries = true;
+        break;
+      case 'E':
+        args.extended = true;
+        break;
+      case 'n': {
+        std::string optargString{optarg};
+        // "name,seasons*episodes"
+        std::regex pattern("([^,]+),([^*]+)\\*(.+)");
+        std::smatch matches;
+        if (std::regex_match(optargString, matches, pattern)) {
+          std::string name = matches[1];
+          int seasons = std::stoi(matches[2]);
+          int episodes = std::stoi(matches[3]);
+          std::cout << "HELLO\n";
+
+          // error if exists
+          if (defaultDirectory.hasFile(name)){
+            errorSeriesExists(name);
+            continue;
+          }
+          args.newTvShows.push_back(TvShow(name, episodes, seasons));
+        }
+        break;
+      }
+      case 'F':
+        args.unfinished = false;
+        args.finished = true;
+        break;
+      case 'a':
+        args.addWatched = atoi(optarg);
+        break;
+      case 'r':
+        args.removeWatched = atoi(optarg);
+        break;
+      default:
+        break;
+    }
+  }
+  return args;
 }
 
 // print that a show exists, doesn't actually check if it exists
 void errorSeriesExists(std::string seriesName)
 {
   std::cerr << "You have the show '" << seriesName << "' in your files.\n";
-}
-void quickSortSeriesArray(std::vector<Series>& seriesArray, size_t low, size_t high)
-{
-  int partition(std::vector<Series> & arr, int start, int end);
-  if (low < high) {
-    int pivotIndex = partition(seriesArray,low,high);
-    quickSortSeriesArray(seriesArray, low, pivotIndex-1);
-    quickSortSeriesArray(seriesArray, pivotIndex+1, high);
-  }
-}
-int partition(std::vector<Series> & arr, int start, int end)
-{
-  Series pivot = arr[start];
-
-  int count = 0;
-  for (int i = start + 1; i <= end; i++) {
-    if (arr[i].name <= pivot.name)
-      count++;
-  }
-
-  // Giving pivot element its correct position
-  int pivotIndex = start + count;
-  std::swap(arr[pivotIndex], arr[start]);
-
-  // Sorting left and right parts of the pivot element
-  int i = start, j = end;
- 
-  while (i < pivotIndex && j > pivotIndex) {
-
-    while (arr[i].name <= pivot.name) {
-        i++;
-    }
-
-    while (arr[j].name > pivot.name) {
-        j--;
-    }
-
-    if (i < pivotIndex && j > pivotIndex) {
-      std::swap(arr[i++], arr[j--]);
-    }
-  }
-
-  return pivotIndex;
 }
